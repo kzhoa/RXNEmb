@@ -1,3 +1,51 @@
+
+[project]
+name = "rxnemb"
+dynamic = ["version"] # 如果版本号在别处定义，如 __init__.py 或单独文件
+# version = "0.1.0" # 也可以直接写死
+description = "A reaction-level embedding descriptor."
+readme = "README.md"
+license = { text = "MIT" }
+dependencies = ["numpy", "pandas", "torch", "pyglib"]
+urls = { Homepage = "https://github.com/yourusername/myproj", Repository = "https://github.com/yourusername/myproj.git" }
+
+# === building system ===
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+
+[project.optional-dependencies]
+cu118 = [
+    "torch==2.0.1+cu118",
+    "torchvision==0.15.2+cu118",
+    "torchaudio==2.0.2+cu118",
+]
+cu121 = [
+    "torch==2.1.1+cu121",
+    "torchvision==0.16.1+cu121",
+    "torchaudio==2.1.1+cu121",
+]
+cu124 = [
+    "torch==2.3.0+cu124",
+    "torchvision==0.18.0+cu124",
+    "torchaudio==2.3.0+cu124",
+]
+
+
+[tool.setuptools]
+package-dir = { "rxnemb" = "src/rxnemb" }
+
+
+[tool.setuptools.dynamic]
+version = { attr = "src.version.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+exclude = ["tests*"]
+
+
+# === linters configuration ===
 [tool.black]
 line-length = 120
 

@@ -1,9 +1,16 @@
-# 🧠 Overview
+# 🚀 Overview
 
-**RXNEmb** is a novel reaction-level embedding descriptor extracted from the pre-trained model [**RXNGraphormer**](https://github.com/licheng-xu-echo/RXNGraphormer). It captures chemical bond formation and cleavage patterns, enabling data-driven reaction classification, mechanistic interpretation, and reaction space visualization.
+**RXNEmb** is a novel reaction-level embedding descriptor generated via the pre-trained model [**RXNGraphormer**](https://github.com/licheng-xu-echo/RXNGraphormer). It captures chemical bond formation and cleavage patterns, enabling data-driven reaction classification, mechanistic interpretation, and reaction space visualization.
 
 
-# 🚀 Generate RXNEmb Descriptor
+# 🔧 Installation 
+
+```bash
+pip install rxnemb
+```
+
+
+# 💡  Generate RXNEmb Descriptor
 
 **Example: Generate reaction embeddings from SMILES list**
 
