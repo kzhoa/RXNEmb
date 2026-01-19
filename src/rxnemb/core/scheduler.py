@@ -1,26 +1,7 @@
-import math
-
 from torch.optim.lr_scheduler import LambdaLR, _LRScheduler
 
 
-def WarmupCosineAnnealingLR(
-    cur_iter, warm_up_iter=10, T_max=50, lr_max=0.1, lr_min=1e-5
-):
-    """
-    From: https://blog.marquis.eu.org/posts/2e3746c6/
-    Usage: scheduler = LambdaLR(optimizer, lr_lambda=WarmupCosineAnnealingLR)
-    """
-    if cur_iter < warm_up_iter:
-        return (lr_max - lr_min) * (cur_iter / warm_up_iter) + lr_min
-    else:
-        return lr_min + 0.5 * (lr_max - lr_min) * (
-            1 + math.cos((cur_iter - warm_up_iter) / (T_max - warm_up_iter) * math.pi)
-        )
-
-
-def get_linear_scheduler_with_warmup(
-    optimizer, num_warmup_steps, num_training_steps, last_epoch=-1
-):
+def get_linear_scheduler_with_warmup(optimizer, num_warmup_steps, num_training_steps, last_epoch=-1):
     """
     Args:
         optimizer (:class:`~torch.optim.Optimizer`):
@@ -42,8 +23,7 @@ def get_linear_scheduler_with_warmup(
             return float(current_step) / float(max(1, num_warmup_steps))
         return max(
             0.0,
-            float(num_training_steps - current_step)
-            / float(max(1, num_training_steps - num_warmup_steps)),
+            float(num_training_steps - current_step) / float(max(1, num_training_steps - num_warmup_steps)),
         )
 
     return LambdaLR(optimizer, lr_lambda, last_epoch)
@@ -70,8 +50,6 @@ class NoamLR(_LRScheduler):
 
     def get_lr(self):
         step = max(1, self._step_count)
-        scale = self.model_size ** (-0.5) * min(
-            step ** (-0.5), step * self.warmup_steps ** (-1.5)
-        )
+        scale = self.model_size ** (-0.5) * min(step ** (-0.5), step * self.warmup_steps ** (-1.5))
 
         return [base_lr * scale for base_lr in self.base_lrs]

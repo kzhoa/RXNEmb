@@ -1,11 +1,61 @@
+
+[project]
+name = "rxnemb"
+description = "A reaction-level embedding descriptor."
+dynamic = ["version"]
+license = "MIT"
+license-files = ["LICENSE*"]
+readme = "README.md"
+urls = {Homepage = "https://github.com/yourusername/myproj", Repository = "https://github.com/yourusername/myproj.git"}
+requires-python = ">=3.9"
+dependencies = ["numpy", "pandas", "torch", "pyglib"]
+
+[project.optional-dependencies]
+cu118 = [
+  "torch==2.0.1+cu118",
+  "torchvision==0.15.2+cu118",
+  "torchaudio==2.0.2+cu118",
+]
+cu121 = [
+  "torch==2.2.1+cu121",
+  "torchvision==0.16.1+cu121",
+  "torchaudio==2.1.1+cu121",
+]
+cu124 = [
+  "torch==2.4.0+cu124",
+  "torchvision==0.18.0+cu124",
+  "torchaudio==2.3.0+cu124",
+]
+
+# === building system ===
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = ["setuptools>=61.0", "wheel"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+
+
+[tool.setuptools.package-data]
+# include pattern
+"rxnemb" = [
+  "rxnemb/**/*.py",
+  "weights/**/*",
+  "ex_utils/*",
+]
+
+[tool.setuptools.dynamic]
+version = {attr = "rxnemb.version.__version__"}
+
+# === linters configuration ===
 [tool.black]
 line-length = 120
 
-
 [tool.isort]
-profile = "black"
 line_length = 120
+profile = "black"
 
 [tool.flake8]
-max-line-length = 120
 ignore = "F401,E402,E501"
+max-line-length = 120

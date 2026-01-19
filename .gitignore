@@ -1,1 +1,7 @@
 .vscode
+dist/
+download/cached_results/*
+download/dataset/*
+*egg-info/
+__pycache__/
+.ipynb_checkpoints

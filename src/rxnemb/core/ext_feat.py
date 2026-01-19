@@ -166,7 +166,7 @@ def get_fp(mol, radius=2, nBits=2048, useChirality=True, fp_type="morgan"):
     return np.array(list(map(eval, list(fp.ToBitString()))))
 
 
-def get_rdkit_desc(mol, **kwargs):
+def get_rdkit_desc(mol):
     """
     generate 2D molecular physicochemical descriptors using RDKit
     Parameters
@@ -218,9 +218,7 @@ def ext_feat_gen(
         elif multi_readout.lower() == "concat":
             return np.concatenate(desc_lst, axis=0)
         else:
-            raise ValueError(
-                'Invalid multi_readout type, please choose from "mean", "concat"'
-            )
+            raise ValueError('Invalid multi_readout type, please choose from "mean", "concat"')
     else:
         if desc_type.lower() in ["morgan", "atompair", "toptorsion", "rdfp"]:
             return get_fp(mol, fp_type=desc_type, **params)

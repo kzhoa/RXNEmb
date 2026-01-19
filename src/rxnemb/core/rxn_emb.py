@@ -1,6 +1,6 @@
 import json
-import os
 import shutil
+from pathlib import Path
 
 import torch
 from box import Box
@@ -13,17 +13,20 @@ from .utils import align_config, canonical_smiles, update_dict_key
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+PKG_DIR = Path(__file__).resolve().parent.parent
+DEFAULT_MODEL_PATH = Path.joinpath(PKG_DIR, "weights", "latest")
+
 
 class RXNEMB:
-    def __init__(
-        self, pretrained_model_path, random_init=False, model_type="classifier"
-    ):
-        pretrained_para_json = f"{pretrained_model_path}/parameters.json"
+    def __init__(self, pretrained_model_path=DEFAULT_MODEL_PATH, random_init=False, model_type="classifier"):
+
+        pretrained_model_path = Path(pretrained_model_path).resolve()
+        pretrained_para_json = pretrained_model_path / "parameters.json"
         with open(pretrained_para_json, "r") as fr:
             pretrained_config_dict = json.load(fr)
         pretrained_config = Box(pretrained_config_dict)
-        ckpt_file = f"{pretrained_model_path}/model/valid_checkpoint.pt"
-        ckpt_inf = torch.load(ckpt_file, map_location=device)
+        ckpt_file = pretrained_model_path / "model/valid_checkpoint.pt"
+        ckpt_inf = torch.load(ckpt_file, map_location=device, weights_only=False)
         if model_type == "classifier":
             input_param = {
                 "emb_dim": pretrained_config.model.emb_dim,
@@ -43,9 +46,7 @@ class RXNEMB:
                 "split_merge_method": pretrained_config.model.split_merge_method,
                 "output_act_func": pretrained_config.model.output_act_func,
             }
-            rxng = RXNGraphormer(
-                "classification", align_config(input_param, "classifier"), ""
-            )
+            rxng = RXNGraphormer("classification", align_config(input_param, "classifier"), "")
             model = rxng.get_model()
 
         elif model_type == "regressor":
@@ -75,9 +76,7 @@ class RXNEMB:
                 "mid_layer_num": pretrained_config.model.mid_layer_num,
             }
 
-            rxng = RXNGraphormer(
-                "regression", align_config(input_param, "regressor"), ""
-            )
+            rxng = RXNGraphormer("regression", align_config(input_param, "regressor"), "")
             model = rxng.get_model()
 
         if not random_init:
@@ -99,8 +98,10 @@ class RXNEMB:
         pdt_name_regrex="50k_rxn_type_pdt_0.csv",
         batch_size=128,
     ):
+
         rct_dataset = MultiRXNDataset(root=root, name_regrex=rct_name_regrex)
         pdt_dataset = MultiRXNDataset(root=root, name_regrex=pdt_name_regrex)
+
         pair_dataset = PairDataset(rct_dataset, pdt_dataset)
         pair_dataloader = torch.utils.data.DataLoader(
             pair_dataset,
@@ -108,6 +109,7 @@ class RXNEMB:
             shuffle=False,
             collate_fn=pair_collate_fn,
         )
+
         all_rxn_emb = []
         print("[INFO] Generating reaction embedding...")
         with torch.no_grad():
@@ -115,12 +117,8 @@ class RXNEMB:
                 rct_data, pdt_data = data
                 rct_data.to(device)
                 pdt_data.to(device)
-                rct_padded_memory_bank, rct_batch, rct_memory_lengths = (
-                    self.model.rct_encoder(rct_data)
-                )
-                pdt_padded_memory_bank, pdt_batch, pdt_memory_lengths = (
-                    self.model.pdt_encoder(pdt_data)
-                )
+                rct_padded_memory_bank, rct_batch, rct_memory_lengths = self.model.rct_encoder(rct_data)
+                pdt_padded_memory_bank, pdt_batch, pdt_memory_lengths = self.model.pdt_encoder(pdt_data)
                 rct_rxn_transf_emb = rct_padded_memory_bank.transpose(0, 1)
                 pdt_rxn_transf_emb = pdt_padded_memory_bank.transpose(0, 1)
                 if self.model.trans_readout == "mean":
@@ -135,15 +133,12 @@ class RXNEMB:
                 elif self.model.split_merge_method == "only_diff":
                     rxn_emb = diff_emb
                 elif self.model.split_merge_method == "rct_pdt":
-                    rxn_emb = torch.cat(
-                        [rct_rxn_transf_emb_merg, pdt_rxn_transf_emb_merg], dim=-1
-                    )
-                for lin_layer, norm_layer in zip(
-                    self.model.decoder.layers[:-1], self.model.decoder.layer_norms[:-1]
-                ):
+                    rxn_emb = torch.cat([rct_rxn_transf_emb_merg, pdt_rxn_transf_emb_merg], dim=-1)
+                for lin_layer, norm_layer in zip(self.model.decoder.layers[:-1], self.model.decoder.layer_norms[:-1]):
                     rxn_emb = lin_layer(rxn_emb)
                     rxn_emb = norm_layer(rxn_emb)
                 all_rxn_emb.append(rxn_emb.detach().cpu())
+
         return torch.cat(all_rxn_emb, dim=0)
 
     def gen_half_rxn_mol_emb_from_dataset(
@@ -154,32 +149,29 @@ class RXNEMB:
         pair_dataloader = torch.utils.data.DataLoader(
             dataset, batch_size=batch_size, shuffle=False, collate_fn=single_collate_fn
         )
+
         all_rxn_transf_emb = []
         print("[INFO] Generating reaction embedding...")
         with torch.no_grad():
             for data in tqdm(pair_dataloader):
                 data.to(device)
                 if mol_type == "rct":
-                    padded_memory_bank, batch, memory_lengths = self.model.rct_encoder(
-                        data
-                    )
+                    padded_memory_bank, batch, memory_lengths = self.model.rct_encoder(data)
                 elif mol_type == "pdt":
-                    padded_memory_bank, batch, memory_lengths = self.model.pdt_encoder(
-                        data
-                    )
+                    padded_memory_bank, batch, memory_lengths = self.model.pdt_encoder(data)
 
                 rxn_transf_emb = padded_memory_bank.transpose(0, 1)
                 all_rxn_transf_emb.append(rxn_transf_emb.detach().cpu())
         return all_rxn_transf_emb
 
-    def gen_mol_emb_from_dataset(
-        self, root, name_regrex="50k_rxn_type_rct_0.csv", batch_size=128, mol_type="rct"
-    ):
+    def gen_mol_emb_from_dataset(self, root, name_regrex="50k_rxn_type_rct_0.csv", batch_size=128, mol_type="rct"):
         assert mol_type in ["rct", "pdt"], "mol_type must be either 'rct' or 'pdt'"
+
         dataset = MultiRXNDataset(root=root, name_regrex=name_regrex)
         dataloader = torch.utils.data.DataLoader(
             dataset, batch_size=batch_size, shuffle=False, collate_fn=single_collate_fn
         )
+
         all_mol_emb = []
         print("[INFO] Generating molecular embedding...")
         with torch.no_grad():
@@ -190,97 +182,85 @@ class RXNEMB:
                 edge_index = data.edge_index
                 edge_attr = data.edge_attr
                 if mol_type == "rct":
-                    node_representation, mol_index, batch = (
-                        self.model.rct_encoder.rxn_graph_encoder(
-                            x, mol_index, edge_index, edge_attr
-                        )
+                    node_representation, mol_index, batch = self.model.rct_encoder.rxn_graph_encoder(
+                        x, mol_index, edge_index, edge_attr
                     )
                 elif mol_type == "pdt":
-                    node_representation, mol_index, batch = (
-                        self.model.pdt_encoder.rxn_graph_encoder(
-                            x, mol_index, edge_index, edge_attr
-                        )
+                    node_representation, mol_index, batch = self.model.pdt_encoder.rxn_graph_encoder(
+                        x, mol_index, edge_index, edge_attr
                     )
 
                 uniq_mol = mol_index.unique()
-                mol_representation = [
-                    node_representation[mol_index == mol].cpu() for mol in uniq_mol
-                ]
+                mol_representation = [node_representation[mol_index == mol].cpu() for mol in uniq_mol]
                 all_mol_emb += mol_representation
         return all_mol_emb
 
     def gen_rxn_emb(self, rxn_smiles_lst, batch_size=128):
-        assert (
-            len(rxn_smiles_lst) >= 2
-        ), "rxn_smiles_lst must contain at least 2 reactions"
-        rct_smi_lst = [
-            f'{canonical_smiles(smi.split(">>")[0])},0' for smi in rxn_smiles_lst
-        ]
-        pdt_smi_lst = [
-            f'{canonical_smiles(smi.split(">>")[1])},0' for smi in rxn_smiles_lst
-        ]
-        os.makedirs("./rxn_emb_tmp/", exist_ok=True)
-        with open("./rxn_emb_tmp/rct_smiles_0.csv", "w") as fw:
+        assert len(rxn_smiles_lst) >= 2, "rxn_smiles_lst must contain at least 2 reactions"
+        rct_smi_lst = [f'{canonical_smiles(smi.split(">>")[0])},0' for smi in rxn_smiles_lst]
+        pdt_smi_lst = [f'{canonical_smiles(smi.split(">>")[1])},0' for smi in rxn_smiles_lst]
+
+        tmp_dir = Path("./rxn_emb_tmp/")
+        tmp_dir.mkdir(parents=True, exist_ok=True)
+        with open(tmp_dir / "rct_smiles_0.csv", "w") as fw:
             fw.writelines("\n".join(rct_smi_lst))
-        with open("./rxn_emb_tmp/pdt_smiles_0.csv", "w") as fw:
+        with open(tmp_dir / "pdt_smiles_0.csv", "w") as fw:
             fw.writelines("\n".join(pdt_smi_lst))
+
         rxn_emb = self.gen_rxn_emb_from_dataset(
-            root="./rxn_emb_tmp",
+            root=str(tmp_dir),
             rct_name_regrex="rct_smiles_0.csv",
             pdt_name_regrex="pdt_smiles_0.csv",
             batch_size=batch_size,
         )
-        shutil.rmtree("./rxn_emb_tmp")
+        shutil.rmtree(tmp_dir)
         return rxn_emb
 
     def gen_mult_mol_emb(self, mult_mol_smiles_lst, mol_type="rct", batch_size=128):
 
         assert mol_type in ["rct", "pdt"], "mol_type must be either 'rct' or 'pdt'"
-        assert (
-            len(mult_mol_smiles_lst) >= 2
-        ), "mult_mol_smiles_lst must contain at least 2 molecules"
+        assert len(mult_mol_smiles_lst) >= 2, "mult_mol_smiles_lst must contain at least 2 molecules"
         mol_num_lst = []
         tot_mol_smi_lst = []
         for idx, mult_mol_smi in enumerate(mult_mol_smiles_lst):
             tot_mol_smi_lst += mult_mol_smi.split(".")
             mol_num_lst += len(mult_mol_smi.split(".")) * [idx]
-        tot_mol_emb = self.gen_mol_emb(
-            tot_mol_smi_lst, mol_type=mol_type, batch_size=batch_size
-        )
+        tot_mol_emb = self.gen_mol_emb(tot_mol_smi_lst, mol_type=mol_type, batch_size=batch_size)
         return tot_mol_emb, mol_num_lst
 
     def gen_mol_emb(self, mol_smiles_lst, mol_type="rct", batch_size=128):
         assert mol_type in ["rct", "pdt"], "mol_type must be either 'rct' or 'pdt'"
-        assert (
-            len(mol_smiles_lst) >= 2
-        ), "mol_smiles_lst must contain at least 2 molecule"
+        assert len(mol_smiles_lst) >= 2, "mol_smiles_lst must contain at least 2 molecule"
         mol_smi_lst = [f"{canonical_smiles(smi)},0" for smi in mol_smiles_lst]
-        os.makedirs("./mol_emb_tmp/", exist_ok=True)
-        with open(f"./mol_emb_tmp/{mol_type}_smiles_0.csv", "w") as fw:
+
+        tmp_dir = Path("./mol_emb_tmp/")
+        tmp_dir.mkdir(parents=True, exist_ok=True)
+        with open(tmp_dir / f"{mol_type}_smiles_0.csv", "w") as fw:
             fw.writelines("\n".join(mol_smi_lst))
+
         mol_emb = self.gen_mol_emb_from_dataset(
-            root="./mol_emb_tmp",
+            root=str(tmp_dir),
             name_regrex=f"{mol_type}_smiles_0.csv",
             mol_type=mol_type,
             batch_size=batch_size,
         )
-        shutil.rmtree("./mol_emb_tmp")
+        shutil.rmtree(tmp_dir)
         return mol_emb
 
     def gen_half_rxn_mol_emb(self, half_rxn_smiles_lst, mol_type="rct", batch_size=128):
         assert mol_type in ["rct", "pdt"], "mol_type must be either 'rct' or 'pdt'"
-        assert (
-            len(half_rxn_smiles_lst) >= 2
-        ), "half_rxn_smiles_lst must contain at least 2 half reactions"
+        assert len(half_rxn_smiles_lst) >= 2, "half_rxn_smiles_lst must contain at least 2 half reactions"
         half_rxn_smi_lst = [f"{canonical_smiles(smi)},0" for smi in half_rxn_smiles_lst]
-        os.makedirs("./half_rxn_emb_tmp/", exist_ok=True)
-        with open(f"./half_rxn_emb_tmp/{mol_type}_smiles_0.csv", "w") as fw:
+
+        tmp_dir = Path("./half_rxn_emb_tmp/")
+        tmp_dir.mkdir(parents=True, exist_ok=True)
+        with open(tmp_dir / f"{mol_type}_smiles_0.csv", "w") as fw:
             fw.writelines("\n".join(half_rxn_smi_lst))
         half_rxn_emb = self.gen_half_rxn_mol_emb_from_dataset(
-            root="./half_rxn_emb_tmp",
+            root=str(tmp_dir),
             name_regrex=f"{mol_type}_smiles_0.csv",
             mol_type=mol_type,
             batch_size=batch_size,
         )
-        shutil.rmtree("./half_rxn_emb_tmp")
+        shutil.rmtree(tmp_dir)
         return half_rxn_emb
