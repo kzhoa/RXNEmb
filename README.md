@@ -2,11 +2,12 @@
 
 
 
-![RXNGraphormer Architecture](static/head_banner.png)
+![RXNEmb](static/head_banner.png)
 
 
 ![PyPI - Downloads](https://img.shields.io/pypi/dm/rxnemb?label=PyPI%20downloads&logo=pypi)
 ![Python version](https://img.shields.io/badge/python->=3.9-blue)  
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
 **RXNEmb** is a novel reaction-level embedding descriptor generated via the pre-trained model [**RXNGraphormer**](https://github.com/licheng-xu-echo/RXNGraphormer). It captures chemical bond formation and cleavage patterns, enabling data-driven reaction classification, mechanistic interpretation, and reaction space visualization.
 
@@ -26,7 +27,7 @@ pip install rxnemb
 # 💡  Generate RXNEmb Descriptor
 
 ## Basic Usage
-**Example: Generate reaction embeddings from SMILES list**
+**Example 1: Generate reaction embeddings from SMILES list**
 
 ```python
 from rxnemb import RXNEMB
