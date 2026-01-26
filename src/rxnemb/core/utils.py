@@ -7,9 +7,9 @@ from datetime import datetime
 from typing import Optional
 
 import numpy as np
+import qqtools as qt
 import torch
 import torch.nn.functional as F
-from box import Box
 from rdkit import Chem, RDLogger
 
 
@@ -17,7 +17,6 @@ def setup_logger(save_dir):
     RDLogger.DisableLog("rdApp.*")
     RDLogger.DisableLog("rdApp.warning")
     os.makedirs(save_dir, exist_ok=True)
-    # os.makedirs(f"{config.model.save_dir}/{config.data.data_path.split('/')[-1]}", exist_ok=True)
     dt = datetime.strftime(datetime.now(), "%y%m%d-%H%Mh")
 
     logger = logging.getLogger()
@@ -209,10 +208,10 @@ def align_config(input_dict, type_="classifier"):
 
     if type_ == "classifier":
         class_dict.update(input_dict)
-        return Box(class_dict)
+        return qt.qDict(class_dict)
     elif type_ == "regressor":
         regress_dict.update(input_dict)
-        return Box(regress_dict)
+        return qt.qDict(regress_dict)
 
 
 def broadcast(src: torch.Tensor, other: torch.Tensor, dim: int):

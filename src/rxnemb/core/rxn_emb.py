@@ -2,8 +2,8 @@ import json
 import shutil
 from pathlib import Path
 
+import qqtools as qt
 import torch
-from box import Box
 from torch.nn.init import xavier_uniform_
 from tqdm import tqdm
 
@@ -24,7 +24,7 @@ class RXNEMB:
         pretrained_para_json = pretrained_model_path / "parameters.json"
         with open(pretrained_para_json, "r") as fr:
             pretrained_config_dict = json.load(fr)
-        pretrained_config = Box(pretrained_config_dict)
+        pretrained_config = qt.qDict(pretrained_config_dict)
         ckpt_file = pretrained_model_path / "model/valid_checkpoint.pt"
         ckpt_inf = torch.load(ckpt_file, map_location=device, weights_only=False)
         if model_type == "classifier":

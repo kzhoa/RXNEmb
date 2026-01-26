@@ -5,7 +5,6 @@ import os
 import numpy as np
 import torch
 import torch.distributed as dist
-from box import Box
 from torch import nn
 from torch.nn.init import xavier_uniform_
 from torch.nn.parallel import DistributedDataParallel as DDP
@@ -489,5 +488,4 @@ class SPLITClassifierTrainer:
 
 
 if __name__ == "__main__":
-    trainer = SPLITClassifierTrainer(Box.from_json("configs/classifier_split_config.json"))
-    trainer.run()
+    pass

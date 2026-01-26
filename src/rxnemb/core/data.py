@@ -1,6 +1,5 @@
 import glob
 import os
-from multiprocessing import Pool
 
 import numpy as np
 import torch
