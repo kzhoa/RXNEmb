@@ -11,14 +11,18 @@ from .data import MultiRXNDataset, PairDataset, pair_collate_fn, single_collate_
 from .model import RXNGraphormer
 from .utils import align_config, canonical_smiles, update_dict_key
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
 PKG_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_MODEL_PATH = Path.joinpath(PKG_DIR, "weights", "latest")
 
 
 class RXNEMB:
-    def __init__(self, pretrained_model_path=DEFAULT_MODEL_PATH, random_init=False, model_type="classifier"):
+    def __init__(
+        self,
+        pretrained_model_path=DEFAULT_MODEL_PATH,
+        random_init=False,
+        model_type="classifier",
+        device="cpu",
+    ):
 
         pretrained_model_path = Path(pretrained_model_path).resolve()
         pretrained_para_json = pretrained_model_path / "parameters.json"
@@ -27,6 +31,7 @@ class RXNEMB:
         pretrained_config = qt.qDict(pretrained_config_dict)
         ckpt_file = pretrained_model_path / "model/valid_checkpoint.pt"
         ckpt_inf = torch.load(ckpt_file, map_location=device, weights_only=False)
+        self.device = device
         if model_type == "classifier":
             input_param = {
                 "emb_dim": pretrained_config.model.emb_dim,
@@ -115,8 +120,8 @@ class RXNEMB:
         with torch.no_grad():
             for data in tqdm(pair_dataloader):
                 rct_data, pdt_data = data
-                rct_data.to(device)
-                pdt_data.to(device)
+                rct_data.to(self.device)
+                pdt_data.to(self.device)
                 rct_padded_memory_bank, rct_batch, rct_memory_lengths = self.model.rct_encoder(rct_data)
                 pdt_padded_memory_bank, pdt_batch, pdt_memory_lengths = self.model.pdt_encoder(pdt_data)
                 rct_rxn_transf_emb = rct_padded_memory_bank.transpose(0, 1)
@@ -154,7 +159,7 @@ class RXNEMB:
         print("[INFO] Generating reaction embedding...")
         with torch.no_grad():
             for data in tqdm(pair_dataloader):
-                data.to(device)
+                data.to(self.device)
                 if mol_type == "rct":
                     padded_memory_bank, batch, memory_lengths = self.model.rct_encoder(data)
                 elif mol_type == "pdt":
@@ -176,7 +181,7 @@ class RXNEMB:
         print("[INFO] Generating molecular embedding...")
         with torch.no_grad():
             for data in tqdm(dataloader):
-                data.to(device)
+                data.to(self.device)
                 x = data.x
                 mol_index = data.mol_index
                 edge_index = data.edge_index

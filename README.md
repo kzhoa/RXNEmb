@@ -32,7 +32,9 @@ pip install rxnemb
 ```python
 from rxnemb import RXNEMB
 
-generator = RXNEMB()
+# Initialize with CPU (default)
+# To use GPU: device='cuda' or device='cuda:0'
+generator = RXNEMB(device='cpu')
 
 # prepare reaction SMILES
 # here are some examples
