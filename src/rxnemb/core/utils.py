@@ -1,58 +1,10 @@
-import logging
 import math
-import os
-import random
-import sys
-from datetime import datetime
 from typing import Optional
 
-import numpy as np
 import qqtools as qt
 import torch
 import torch.nn.functional as F
-from rdkit import Chem, RDLogger
-
-
-def setup_logger(save_dir):
-    RDLogger.DisableLog("rdApp.*")
-    RDLogger.DisableLog("rdApp.warning")
-    os.makedirs(save_dir, exist_ok=True)
-    dt = datetime.strftime(datetime.now(), "%y%m%d-%H%Mh")
-
-    logger = logging.getLogger()
-    logger.setLevel(logging.INFO)
-    fh = logging.FileHandler(f"{save_dir}/{dt}.log")
-    sh = logging.StreamHandler(sys.stdout)
-    fh.setLevel(logging.INFO)
-    sh.setLevel(logging.INFO)
-    logger.addHandler(fh)
-    logger.addHandler(sh)
-
-    return logger
-
-
-def param_norm(m):
-    return math.sqrt(sum([p.norm().item() ** 2 for p in m.parameters()]))
-
-
-def grad_norm(m):
-    return math.sqrt(sum([p.grad.norm().item() ** 2 for p in m.parameters() if p.grad is not None]))
-
-
-def get_lr(optimizer):
-    lr_lst = []
-    for param_group in optimizer.param_groups:
-        lr_lst.append(str(round(param_group["lr"], 8)))
-    return ",".join(lr_lst)
-
-
-def set_seed(seed):
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-    np.random.seed(seed)
-    random.seed(seed)
+from rdkit import Chem
 
 
 def pad_feat(feat, batch, num_features):
@@ -97,15 +49,6 @@ def scaled_dot_product_attention(query, key, value, query_mask=None, key_mask=No
         scores = scores.masked_fill(mask == 0, -float("inf"))
     weights = F.softmax(scores, dim=-1)
     return torch.bmm(weights, value)
-
-
-def index_select_ND(source, dim, index):
-    index_size = index.size()
-    suffix_dim = source.size()[1:]
-    final_size = index_size + suffix_dim
-    target = source.index_select(dim, index.view(-1))
-
-    return target.view(final_size)
 
 
 def update_dict_key(old_state_dict, prefix="module.", compat=True):
@@ -156,7 +99,7 @@ def canonical_smiles(smiles: str):
 
 
 def align_config(input_dict, type_="classifier"):
-    assert type_ in ["classifier", "regressor", "sequence_generation"]
+    assert type_ == "classifier", "RXNEmb currently only supports classifier models."
     class_dict = {
         "emb_dim": 256,
         "JK": "last",
@@ -177,41 +120,8 @@ def align_config(input_dict, type_="classifier"):
         "split_merge_method": "all",
         "output_act_func": "relu",
     }
-    regress_dict = {
-        "JK": "last",
-        "output_size": 1,
-        "drop_ratio": 0.0,
-        "num_heads": 4,
-        "gnn_type": "gcn",
-        "bond_feat_red": "mean",
-        "gnn_aggr": "add",
-        "node_readout": "sum",
-        "trans_readout": "mean",
-        "graph_pooling": "attention",
-        "attn_drop_ratio": 0.0,
-        "encoder_filter_size": 2048,
-        "rel_pos_buckets": 11,
-        "rel_pos": "emb_only",
-        "output_norm": False,
-        "split_process": False,
-        "use_mid_inf": False,
-        "interaction": False,
-        "interaction_layer_num": 3,
-        "mid_iteract_method": "attention",
-        "split_merge_method": "all",
-        "output_act_func": "relu",
-        "rct_layer_norm": True,
-        "pdt_layer_norm": True,
-        "mid_layer_norm": True,
-        "mid_layer_num": 1,
-    }
-
-    if type_ == "classifier":
-        class_dict.update(input_dict)
-        return qt.qDict(class_dict)
-    elif type_ == "regressor":
-        regress_dict.update(input_dict)
-        return qt.qDict(regress_dict)
+    class_dict.update(input_dict)
+    return qt.qDict(class_dict)
 
 
 def broadcast(src: torch.Tensor, other: torch.Tensor, dim: int):

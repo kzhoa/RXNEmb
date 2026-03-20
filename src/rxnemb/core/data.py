@@ -360,7 +360,7 @@ class MultiRXNDataset(InMemoryDataset):
         pre_transform=None,
         trunck=None,
         file_num_trunck=0,
-        task="regression",
+        task="classification",
         num_worker=8,
         multi_process=False,
         ext_feat=False,
@@ -559,20 +559,6 @@ def get_idx_split(data_size, train_size, valid_size, seed):
     return split_dict
 
 
-def get_token_ids(tokens, vocab, max_len):
-
-    token_ids = []
-    token_ids.extend([vocab[token] for token in tokens])
-    token_ids = token_ids[: max_len - 1]
-    token_ids.append(vocab["_EOS"])
-
-    lens = len(token_ids)
-    while len(token_ids) < max_len:
-        token_ids.append(vocab["_PAD"])
-
-    return token_ids, lens
-
-
 def get_cpd_rxn_info(cpd_smi, ext, ext_param, ext_type, mul_ext_readout):
 
     rxn_mol = Chem.MolFromSmiles(cpd_smi)
@@ -636,17 +622,9 @@ def get_cpd_rxn_info(cpd_smi, ext, ext_param, ext_type, mul_ext_readout):
 def get_rxn_pfm_info(rxn_smi_tgt_task_ens):
     rxn_smi_tgt, task, ext, ext_type, ext_param, mul_ext_readout = rxn_smi_tgt_task_ens
     task = task.lower()
-    assert task in [
-        "regression",
-        "classification",
-    ], "task must be regression or classification"
+    assert task == "classification", "RXNEmb currently only supports classification datasets."
     rxn_smi, tgt_ = rxn_smi_tgt.split(",")
-    if task.lower() == "regression":
-        tgt_ = torch.tensor([float(tgt_)]).float()
-    elif task.lower() == "classification":
-        tgt_ = torch.tensor([int(tgt_)]).long()
-    else:
-        raise ValueError("task must be regression or classification")
+    tgt_ = torch.tensor([int(tgt_)]).long()
     (
         x_merge,
         edge_index_merge,
@@ -671,60 +649,4 @@ def get_rxn_pfm_info(rxn_smi_tgt_task_ens):
         mol_index,
         tgt_,
         ext_feat,
-    )
-
-
-def get_rxn_seq_info(input_):
-    src_line, tgt_line, vocab, max_length = input_
-    src_smi = "".join(src_line.strip().split())
-    tgt_tokens = tgt_line.strip().split()
-    tgt_token_ids, tgt_lens = get_token_ids(tgt_tokens, vocab, max_length)
-    tgt_token_ids = torch.tensor([tgt_token_ids], dtype=torch.long)
-    tgt_lens = torch.tensor([tgt_lens], dtype=torch.long)
-
-    ## Molecular Graph for Reactant Molecules
-    src_smi_blk_lst = src_smi.split(".")
-    x_edge_index_attr_lst = []
-    failed = False
-    for smi in src_smi_blk_lst:
-        rdkit_mol = Chem.MolFromSmiles(smi)
-        if rdkit_mol == None:
-            failed = True
-            break
-        x_edge_index_attr_lst.append(mol2graphinfo(rdkit_mol))
-    if failed:
-        return None
-    atom_num_lst = [len(item[0]) for item in x_edge_index_attr_lst]
-    atom_num_start = [0]
-    mol_index = []
-    for num in atom_num_lst[:-1]:
-        atom_num_start.append(atom_num_start[-1] + num)
-    for i, num in enumerate(atom_num_lst):
-        mol_index += [i] * num
-
-    x_merge = torch.cat([item[0] for item in x_edge_index_attr_lst])
-    edge_index_merge = torch.cat(
-        [item[1] + num for item, num in zip(x_edge_index_attr_lst, atom_num_start)],
-        dim=1,
-    )
-    edge_attr_merge = torch.cat([item[2] for item in x_edge_index_attr_lst])
-    atom_mass_merge = torch.cat([item[3] for item in x_edge_index_attr_lst])
-    x_oh_merge = torch.cat([item[4] for item in x_edge_index_attr_lst])
-    edge_oh_attr_merge = torch.cat([item[5] for item in x_edge_index_attr_lst])
-    a_graphs_merge = torch.cat([item[6] for item in x_edge_index_attr_lst])
-    b_graphs_merge = torch.cat([item[7] for item in x_edge_index_attr_lst])
-    if len(mol_index) == 0:
-        return None
-    return (
-        x_merge,
-        edge_index_merge,
-        edge_attr_merge,
-        mol_index,
-        atom_mass_merge,
-        x_oh_merge,
-        edge_oh_attr_merge,
-        a_graphs_merge,
-        b_graphs_merge,
-        tgt_token_ids,
-        tgt_lens,
     )

@@ -52,7 +52,19 @@ print(rxn_emb.shape) # torch.Size([2, 768])
 
 ## Use Customized Model
 
-If you want to train your own model from scratch, please refer to the instructions in the  [**RXNGraphormer**](https://github.com/licheng-xu-echo/RXNGraphormer) repository.
+You can train a classifier checkpoint directly in this repository:
+
+```bash
+rxnemb-train --config-json /path/to/parameters.json
+```
+
+The training code lives under `src/rxnemb/trainer/`. It only supports the classification task used to learn the classification head while exporting the penultimate representation as the reaction descriptor.
+
+If you prefer module execution:
+
+```bash
+python -m rxnemb.trainer --config-json /path/to/parameters.json
+```
 
 After training is done, you can load the model by specifying the path to the directory containing your model weights and configuration file:
 
@@ -79,6 +91,5 @@ If you use RXNEmb in your research, please cite:
       pubstate = {prepublished},
 }
 ```
-
 
 

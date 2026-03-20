@@ -7,3 +7,4 @@ tqdm==4.67.1
 pandas==2.3.3
 seaborn==0.13.2
 qqtools>=1.1.28
+tensorboard>=2.16
